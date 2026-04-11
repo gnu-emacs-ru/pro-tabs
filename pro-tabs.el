@@ -175,35 +175,24 @@ simple fallback is added."
 
 (defun pro-tabs--icon-provider-all-the-icons (buffer-or-mode backend)
   "Icon provider based on `all-the-icons' (if available)."
-  (if (not (featurep 'all-the-icons))
-      (progn
-        (pro-tabs--log 'trace "icon-provider: all-the-icons unavailable for %S/%S" buffer-or-mode backend)
-        nil)
-    (let* ((mode (cond
-                  ((bufferp buffer-or-mode)
-                   (buffer-local-value 'major-mode buffer-or-mode))
-                  ((symbolp buffer-or-mode) buffer-or-mode)))
-           (face (pro-tabs--icon-provider-face buffer-or-mode backend))
-           (icon (pro-tabs--icon-provider-icon-for-mode mode buffer-or-mode backend)))
-      (when (stringp icon)
-        (propertize icon
-                    'face face
-                    'ascent 'center
-                    'height 0.75)))))
-
-;; The simplest fallback provider (unicodes/emoji)
-(defun pro-tabs--icon-provider-fallback (_buffer-or-mode backend)
-  "Always returns a subtle bullet if other providers did not work."
-  (let ((icon "•"))
-    ;; Ensure the same size and centering as 'all-the-icons'
-    (propertize icon
-                'face (if (eq backend 'tab-bar) 'tab-bar-tab-inactive 'tab-line-tab-inactive)
+  (message "[pro-tabs] icon check: buffer=%s backend=%S featurep(all-the-icons)=%s"
+           (and (bufferp buffer-or-mode) (buffer-name buffer-or-mode))
+           backend
+           (featurep 'all-the-icons))
+  (let* ((mode (cond
+                ((bufferp buffer-or-mode)
+                 (buffer-local-value 'major-mode buffer-or-mode))
+                ((symbolp buffer-or-mode) buffer-or-mode)))
+         (face (pro-tabs--icon-provider-face buffer-or-mode backend))
+         (icon (and (featurep 'all-the-icons)
+                    (pro-tabs--icon-provider-icon-for-mode mode buffer-or-mode backend))))
+    (propertize (or icon "•")
+                'face face
                 'ascent 'center
                 'height 0.75)))
 
 ;; Register built-in providers
 (add-hook 'pro-tabs-icon-functions #'pro-tabs--icon-provider-all-the-icons)
-(add-hook 'pro-tabs-icon-functions #'pro-tabs--icon-provider-fallback t) ; t ⇒ add to end
 
 ;; -------------------------------------------------------------------
 ;; Pure helpers
@@ -355,8 +344,8 @@ Also rebuild cached color blends and wave image specs."
 (defvar pro-tabs--wave-token-cache (make-hash-table :test 'equal)
   "Cache of pre-propertized single-space strings for wave display specs.")
 
-(defvar pro-tabs--icon-cache-by-buffer (make-hash-table :test 'eq :weakness 'key)
-  "Internal cache for icons per buffer. Weak keys so dead buffers are collected.")
+(defvar pro-tabs--icon-cache-by-buffer (make-hash-table :test 'equal)
+  "Internal cache for icons per buffer and mode.")
 
 (defvar pro-tabs--icon-cache-by-mode (make-hash-table :test 'equal)
   "Internal cache for icons per (MODE . BACKEND).")
@@ -568,23 +557,26 @@ Silences messages during provider calls and protects against provider errors."
     (let ((inhibit-message t)) ; some providers or deps may call `message'
       (if (bufferp buffer-or-mode)
           (let* ((active? (eq buffer-or-mode (window-buffer)))
-                 (key (vector buffer-or-mode backend active?)))
+                 (mode (buffer-local-value 'major-mode buffer-or-mode))
+                 (key (list buffer-or-mode backend active? mode)))
             (or (let ((cached (gethash key pro-tabs--icon-cache-by-buffer)))
-                  (when cached
-                    (pro-tabs--log 'trace "icon-cache: buffer hit %s/%S active=%s" (buffer-name buffer-or-mode) backend active?))
-                  cached)
-                (let ((val (cl-some (lambda (fn)
-                                      (condition-case nil
-                                          (funcall fn buffer-or-mode backend)
-                                        (error nil)))
-                                    pro-tabs-icon-functions)))
-                  (when (null val)
-                    (pro-tabs--log 'trace "icon-provider: no icon for buffer=%s backend=%S active=%s" (buffer-name buffer-or-mode) backend active?))
-                  (puthash key val pro-tabs--icon-cache-by-buffer)
-                  val))
-            (let* ((key (cons buffer-or-mode backend)))
-              (or (let ((cached (gethash key pro-tabs--icon-cache-by-mode)))
-                    (when cached
+                (when cached
+                   (pro-tabs--log 'trace "icon-cache: buffer hit %s/%S active=%s mode=%S"
+                                  (buffer-name buffer-or-mode) backend active? mode))
+                cached)
+              (let ((val (cl-some (lambda (fn)
+                                    (condition-case nil
+                                        (funcall fn buffer-or-mode backend)
+                                      (error nil)))
+                                  pro-tabs-icon-functions)))
+                (when (null val)
+                   (pro-tabs--log 'trace "icon-provider: no icon for buffer=%s backend=%S active=%s mode=%S"
+                                  (buffer-name buffer-or-mode) backend active? mode))
+                (puthash key val pro-tabs--icon-cache-by-buffer)
+                val))
+        (let* ((key (cons buffer-or-mode backend)))
+          (or (let ((cached (gethash key pro-tabs--icon-cache-by-mode)))
+                (when cached
                       (pro-tabs--log 'trace "icon-cache: mode hit %S/%S" buffer-or-mode backend))
                     cached)
                   (let ((val (cl-some (lambda (fn)
@@ -611,9 +603,10 @@ Silences messages during provider calls and protects against provider errors."
     ('tab-bar
      (let* ((current? (eq (car item) 'current-tab))
             (bufname  (substring-no-properties (alist-get 'name item)))
+            (buffer   (get-buffer bufname))
             (face     (if current? 'pro-tabs-active-face 'pro-tabs-inactive-face))
             (h        pro-tabs-tab-bar-height)
-            (icon     (pro-tabs--icon (get-buffer bufname) 'tab-bar))
+            (icon     (pro-tabs--icon buffer 'tab-bar))
             (wave-r   (if pro-tabs-enable-waves
                           (pro-tabs--wave-token-right face 'tab-bar (+ 1 h))
                         " "))
@@ -622,24 +615,26 @@ Silences messages during provider calls and protects against provider errors."
                         " "))
             (name     (pro-tabs--shorten bufname pro-tabs-max-name-length))
             (txt      (concat wave-r (or icon "") " " name wave-l)))
-       (pro-tabs--log 'trace "format tab-bar: tab=%s buffer=%s icon=%S"
-                      bufname (and (get-buffer bufname) (buffer-name (get-buffer bufname))) icon)
-       (add-face-text-property 0 (length txt) face t txt) txt))
+       (pro-tabs--log 'trace "format tab-bar: tab=%s buffer=%s mode=%S icon=%S"
+                      bufname (and buffer (buffer-name buffer))
+                      (and buffer (buffer-local-value 'major-mode buffer)) icon)
+        (add-face-text-property 0 (length txt) face t txt) txt))
 
     (_                                  ; tab-line
      (let* ((buffer    item)
             (win       (selected-window))
             (count     (or (window-parameter win 'pro-tabs--tab-line-count) 0))
-            (many      (or (window-parameter win 'pro-tabs--tab-line-many) nil))
-            (current?  (eq buffer (window-buffer win)))
-            (face      (if current? 'pro-tabs-active-face 'pro-tabs-inactive-face))
+             (many      (or (window-parameter win 'pro-tabs--tab-line-many) nil))
+             (current?  (eq buffer (window-buffer win)))
+             (face      (if current? 'pro-tabs-active-face 'pro-tabs-inactive-face))
             (h         pro-tabs-tab-line-height)
             (waves?    (and pro-tabs-enable-waves (not many)))
             (icons?    (and pro-tabs-enable-icons
                             (or (not (numberp pro-tabs-tab-line-icons-threshold))
                                 (<= pro-tabs-tab-line-icons-threshold 0)
                                 (< count pro-tabs-tab-line-icons-threshold))))
-            (icon      (and icons? (pro-tabs--icon buffer 'tab-line)))
+             (mode      (buffer-local-value 'major-mode buffer))
+             (icon      (and icons? (pro-tabs--icon buffer 'tab-line)))
             (wave-r    (if waves?
                            (pro-tabs--wave-token-right 'tab-line face (+ 1 h))
                          " "))
@@ -649,28 +644,29 @@ Silences messages during provider calls and protects against provider errors."
             (name      (pro-tabs--shorten (buffer-name buffer) pro-tabs-max-name-length))
             (txt       (concat wave-r (or icon "") " " name wave-l)))
        (pro-tabs--log 'trace "format tab-line: buffer=%s mode=%S icon=%S count=%s many=%s"
-                      (buffer-name buffer)
-                      (buffer-local-value 'major-mode buffer)
-                      icon count many)
-       (add-face-text-property 0 (length txt) face t txt) txt))))
+                      (buffer-name buffer) mode icon count many)
+        (add-face-text-property 0 (length txt) face t txt) txt))))
 
 (defun pro-tabs--format (backend item &optional _index)
   "Return formatted tab for BACKEND with event-driven caching.
 BACKEND ∈ {'tab-bar,'tab-line}. ITEM is alist(tab) or buffer."
-  (let* ((key (if (eq backend 'tab-bar)
-                  (let* ((current? (eq (car item) 'current-tab))
-                         (bufname (alist-get 'name item)))
-                    (vector backend bufname current?
-                            pro-tabs-enable-icons pro-tabs-enable-waves
-                            pro-tabs-max-name-length pro-tabs-tab-bar-height))
-                (let* ((buffer item)
-                       (win (selected-window))
-                       (current? (eq buffer (window-buffer win)))
-                       (bufname (buffer-name buffer))
-                       (many (or (window-parameter win 'pro-tabs--tab-line-many) nil)))
-                  (vector backend win bufname current? many
-                          pro-tabs-enable-icons pro-tabs-enable-waves
-                          pro-tabs-max-name-length pro-tabs-tab-line-height))))
+    (let* ((key (if (eq backend 'tab-bar)
+                   (let* ((current? (eq (car item) 'current-tab))
+                          (bufname (alist-get 'name item))
+                          (buffer (get-buffer bufname))
+                          (mode (and buffer (buffer-local-value 'major-mode buffer))))
+                     (vector backend bufname mode current?
+                             pro-tabs-enable-icons pro-tabs-enable-waves
+                             pro-tabs-max-name-length pro-tabs-tab-bar-height))
+                 (let* ((buffer item)
+                        (win (selected-window))
+                        (current? (eq buffer (window-buffer win)))
+                        (bufname (buffer-name buffer))
+                        (mode (buffer-local-value 'major-mode buffer))
+                        (many (or (window-parameter win 'pro-tabs--tab-line-many) nil)))
+                   (vector backend win bufname mode current? many
+                           pro-tabs-enable-icons pro-tabs-enable-waves
+                           pro-tabs-max-name-length pro-tabs-tab-line-height))))
          (val (gethash key pro-tabs--format-cache)))
     (if val
         (progn

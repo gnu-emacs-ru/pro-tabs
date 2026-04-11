@@ -42,10 +42,20 @@
 
 - Name: Icon Providers
   Stability: [FLUID]
-  Spec: `pro-tabs-icon-functions` resolves tab icons through ordered providers with an `all-the-icons` provider and unicode fallback glyphs when icons are unavailable.
+  Spec: `pro-tabs-icon-functions` resolves tab icons through an `all-the-icons` provider with a unicode bullet fallback when icons are unavailable.
   Proof: manual/e2e coverage.
 
 - Name: Icon Cache Key
   Stability: [FLUID]
   Spec: Buffer icons are cached by buffer, backend, and active-state so current/inactive faces can differ correctly.
+  Proof: manual/e2e coverage.
+
+- Name: Mode-Aware Icons
+  Stability: [FLUID]
+  Spec: Buffer icon and tab string caches vary with `major-mode` so mode-specific icons update after a mode change.
+  Proof: `pro-tabs-test.el`.
+
+- Name: Cache Invalidation
+  Stability: [FLUID]
+  Spec: Buffer-list, window-selection, and window-configuration changes flush icon and format caches.
   Proof: manual/e2e coverage.
