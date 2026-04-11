@@ -96,6 +96,12 @@ LEVEL is a symbol like 'trace, 'info, 'warn, 'error."
 (defvar pro-tabs--generation 0
   "Monotonic generation counter for event-driven cache invalidation.")
 
+(defun pro-tabs--current-generation ()
+  "Return the current generation counter, even if not initialized yet."
+  (if (boundp 'pro-tabs--generation)
+      pro-tabs--generation
+    0))
+
 ;; -------------------------------------------------------------------
 ;; Icon provider abstraction
 ;; -------------------------------------------------------------------
@@ -347,20 +353,29 @@ Also rebuild cached color blends and wave image specs."
 
 (defun pro-tabs--bump-generation ()
   "Increment generation counter and clear format cache."
-  (setq pro-tabs--generation (1+ pro-tabs--generation))
+  (setq pro-tabs--generation (1+ (pro-tabs--current-generation)))
   (pro-tabs--clear-format-cache))
 
 (defun pro-tabs--on-buffer-list-update (&rest _)
   "Hook: buffer list changed."
-  (pro-tabs--bump-generation))
+  (condition-case err
+      (pro-tabs--bump-generation)
+    (error
+     (pro-tabs--log 'error "buffer-list-update hook failed: %S" err))))
 
 (defun pro-tabs--on-window-selectionchange (&rest _)
   "Hook: selected window changed."
-  (pro-tabs--bump-generation))
+  (condition-case err
+      (pro-tabs--bump-generation)
+    (error
+     (pro-tabs--log 'error "window-selection hook failed: %S" err))))
 
 (defun pro-tabs--on-window-config-change (&rest _)
   "Hook: window configuration changed."
-  (pro-tabs--bump-generation))
+  (condition-case err
+      (pro-tabs--bump-generation)
+    (error
+     (pro-tabs--log 'error "window-config hook failed: %S" err))))
 
 (defconst pro-tabs--wave-template
   [ "21111111111"
@@ -560,6 +575,7 @@ Silences messages during provider calls and protects against provider errors."
 ;; -------------------------------------------------------------------
 ;; Unified format
 ;; -------------------------------------------------------------------
+
 (defun pro-tabs--format-internal (backend item &optional _index)
   "Pure formatter used by the caching wrapper."
   (pcase backend
@@ -659,7 +675,7 @@ Mimics `tab-line-tabs-mode-buffers' but avoids seq/sort/uniq on redisplay."
   (let* ((win (or window (selected-window)))
          (curr (window-buffer win))
          (curr-mode (buffer-local-value 'major-mode curr))
-         (gen pro-tabs--generation)
+         (gen (pro-tabs--current-generation))
          (cache (window-parameter win 'pro-tabs--tabs-cache)))
     (pro-tabs--log 'trace "tabs-fn: win=%s gen=%s curr=%s mode=%s cache=%s"
                    win gen curr curr-mode (and cache t))
@@ -692,7 +708,7 @@ Mimics `tab-line-tabs-mode-buffers' but avoids seq/sort/uniq on redisplay."
   "Key for Emacs 29+ tab-line cache; stable until generation or window changes.
 Accept any calling convention; extract WINDOW from ARGS when present."
   (let ((win (cl-some (lambda (x) (and (windowp x) x)) args)))
-    (list :gen pro-tabs--generation :win (or win (selected-window)))))
+    (list :gen (pro-tabs--current-generation) :win (or win (selected-window)))))
 
 ;; -------------------------------------------------------------------
 ;; Minor mode (side-effects live here)

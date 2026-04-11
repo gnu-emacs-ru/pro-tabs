@@ -12,9 +12,9 @@
 ;;; Generated autoloads from pro-tabs.el
 
 (autoload 'pro-tabs-open-new-tab "pro-tabs" "\
-Open a new tab with dashboard, if present." t)
+Open new tab to the right; if `dashboard-open' exists, call it." t)
 (autoload 'pro-tabs-close-tab-and-buffer "pro-tabs" "\
-Close the current tab and its buffer." t)
+Kill current buffer and its tab." t)
 (defvar pro-tabs-mode nil "\
 Non-nil if Pro-Tabs mode is enabled.
 See the `pro-tabs-mode' command
@@ -24,7 +24,7 @@ either customize it (see the info node `Easy Customization')
 or call the function `pro-tabs-mode'.")
 (custom-autoload 'pro-tabs-mode "pro-tabs" nil)
 (autoload 'pro-tabs-mode "pro-tabs" "\
-Toggle pro-tabs enhancements globally.
+Toggle pro-tabs everywhere.
 
 This is a global minor mode.  If called interactively, toggle the
 `Pro-Tabs mode' mode.  If the prefix argument is positive, enable the
