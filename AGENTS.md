@@ -24,6 +24,7 @@
 - `pro-tabs-mode` must remain safe to enable/disable repeatedly.
 - Avoid repo-specific shortcuts like OpenCode-only behavior.
 - `SURFACE.md` and `HOLO.md` are the contract artifacts for HDS work.
+- Keep icon-provider helpers small and composable when they grow too large.
 
 ## Verification
 

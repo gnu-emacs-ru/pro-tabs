@@ -25,6 +25,10 @@ Rendering model:
 - `pro-tabs--format` is the shared formatter with backend-specific wrappers.
 - `pro-tabs--format-internal` owns the tab text assembly.
 - `pro-tabs--icon-functions` is an ordered provider hook with a fallback bullet provider.
+- Icon provider logic is split into small helpers for face selection, mode dispatch, and fallback handling.
+- Debug logging can explain cache hits, provider misses, and fallback selection for icons.
+- Format cache hit/miss logging helps diagnose stale tab strings.
+- Buffer icon cache keys include active-state so active/inactive tabs can render differently.
 - Wave separators are precomputed and cached by backend, state, direction, and height.
 - Icons and formatted strings use caches that are invalidated by generation bumps.
 - `pro-tabs-tabs-function-fast` computes tab-line buffers with per-window caching.

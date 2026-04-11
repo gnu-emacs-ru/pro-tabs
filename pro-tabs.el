@@ -121,58 +121,75 @@ simple fallback is added."
   :type 'hook
   :group 'pro-tabs)
 
+(defun pro-tabs--icon-provider-face (buffer-or-mode backend)
+  "Return the face to use for BUFFER-OR-MODE and BACKEND."
+  (if (and (bufferp buffer-or-mode)
+           (eq buffer-or-mode (window-buffer)))
+      (if (eq backend 'tab-bar)
+          'tab-bar-tab
+        'tab-line-tab-current)
+    (if (eq backend 'tab-bar)
+        'tab-bar-tab-inactive
+      'tab-line-tab-inactive)))
+
+(defun pro-tabs--icon-provider-fallback-for-mode (mode buffer-or-mode backend)
+  "Return a fallback icon for MODE."
+  (let ((fallback (or (ignore-errors (all-the-icons-octicon "file" :height 0.75 :v-adjust 0.05))
+                      (ignore-errors (all-the-icons-octicon "file-text" :height 0.75 :v-adjust 0.07))
+                      "•")))
+    (pro-tabs--log 'trace "icon-provider: mode=%S returned fallback for %S/%S" mode buffer-or-mode backend)
+    fallback))
+
+(defun pro-tabs--icon-provider-icon-for-mode (mode buffer-or-mode backend)
+  "Return an icon string for MODE, BUFFER-OR-MODE and BACKEND."
+  (cond
+   ((and (bufferp buffer-or-mode)
+         (string-match-p "Tor Browser\\|tor browser" (buffer-name buffer-or-mode)))
+    (ignore-errors (all-the-icons-faicon "user-secret" :v-adjust 0 :height 0.75)))
+   ((and (bufferp buffer-or-mode)
+         (string-match-p "Firefox\\|firefox" (buffer-name buffer-or-mode)))
+    (ignore-errors (all-the-icons-faicon "firefox" :v-adjust 0 :height 0.75)))
+   ((and (bufferp buffer-or-mode)
+         (string-match-p "Google-chrome" (buffer-name buffer-or-mode)))
+    (ignore-errors (all-the-icons-faicon "chrome" :v-adjust 0 :height 0.75)))
+   ((memq mode '(term-mode vterm-mode eshell-mode shell-mode))
+    (ignore-errors
+      (all-the-icons-alltheicon "terminal"
+                                :height 0.75
+                                :v-adjust 0.03)))
+   ((eq mode 'dired-mode)
+    (ignore-errors (all-the-icons-octicon "file-directory" :v-adjust 0.0 :height 0.75)))
+   ((eq mode 'org-mode)
+    (ignore-errors (all-the-icons-fileicon "org" :v-adjust 0.05 :height 0.75)))
+   ((eq mode 'Info-mode)
+    (ignore-errors (all-the-icons-octicon "book" :height 0.75)))
+   ((memq mode '(help-mode helpful-mode apropos-mode))
+    (ignore-errors (all-the-icons-material "help" :height 0.75)))
+   ((eq mode 'exwm-mode)
+    (ignore-errors (all-the-icons-faicon "windows" :v-adjust -0.12 :height 0.75)))
+   (t
+    (let ((maybe (ignore-errors (all-the-icons-icon-for-mode mode :height 0.75))))
+      (if (stringp maybe)
+          maybe
+        (pro-tabs--icon-provider-fallback-for-mode mode buffer-or-mode backend))))))
+
 (defun pro-tabs--icon-provider-all-the-icons (buffer-or-mode backend)
   "Icon provider based on `all-the-icons' (if available)."
-  (when (featurep 'all-the-icons)
+  (if (not (featurep 'all-the-icons))
+      (progn
+        (pro-tabs--log 'trace "icon-provider: all-the-icons unavailable for %S/%S" buffer-or-mode backend)
+        nil)
     (let* ((mode (cond
                   ((bufferp buffer-or-mode)
                    (buffer-local-value 'major-mode buffer-or-mode))
                   ((symbolp buffer-or-mode) buffer-or-mode)))
-           (term-modes '(term-mode vterm-mode eshell-mode shell-mode))
-           (face (if (and (bufferp buffer-or-mode)
-                          (eq buffer-or-mode (window-buffer)))
-                     (if (eq backend 'tab-bar)
-                         'tab-bar-tab
-                       'tab-line-tab-current)
-                   (if (eq backend 'tab-bar)
-                       'tab-bar-tab-inactive
-                     'tab-line-tab-inactive)))
-           (icon
-            (cond
-             ((and (bufferp buffer-or-mode)
-                   (string-match-p "Tor Browser\\|tor browser" (buffer-name buffer-or-mode)))
-              (ignore-errors (all-the-icons-faicon "user-secret" :v-adjust 0 :height 0.75)))
-             ((and (bufferp buffer-or-mode)
-                   (string-match-p "Firefox\\|firefox" (buffer-name buffer-or-mode)))
-              (ignore-errors (all-the-icons-faicon "firefox" :v-adjust 0 :height 0.75)))
-             ((and (bufferp buffer-or-mode)
-                   (string-match-p "Google-chrome" (buffer-name buffer-or-mode)))
-              (ignore-errors (all-the-icons-faicon "chrome" :v-adjust 0 :height 0.75)))
-             ((memq mode term-modes)
-              (ignore-errors
-                (all-the-icons-alltheicon "terminal"
-                                          :height 0.75
-                                          :v-adjust 0.03)))
-             ((eq mode 'dired-mode)
-              (ignore-errors (all-the-icons-octicon "file-directory" :v-adjust 0.0 :height 0.75)))
-             ((eq mode 'org-mode)
-              (ignore-errors (all-the-icons-fileicon "org" :v-adjust 0.05 :height 0.75)))
-             ((eq mode 'Info-mode)
-              (ignore-errors (all-the-icons-octicon "book" :height 0.75)))
-             ((memq mode '(help-mode helpful-mode apropos-mode))
-              (ignore-errors (all-the-icons-material "help" :height 0.75)))
-             ((eq mode 'exwm-mode)
-              (ignore-errors (all-the-icons-faicon "windows" :v-adjust -0.12 :height 0.75)))
-             (t
-              (let* ((maybe (all-the-icons-icon-for-mode mode :height 0.75))
-                     (fallback (or (ignore-errors (all-the-icons-octicon "file" :height 0.75 :v-adjust 0.05))
-                                   (ignore-errors (all-the-icons-octicon "file-text" :height 0.75  :v-adjust 0.07))
-                                   "•")))
-                (if (stringp maybe)
-                    maybe
-                  fallback))))))
+           (face (pro-tabs--icon-provider-face buffer-or-mode backend))
+           (icon (pro-tabs--icon-provider-icon-for-mode mode buffer-or-mode backend)))
       (when (stringp icon)
-        icon))))
+        (propertize icon
+                    'face face
+                    'ascent 'center
+                    'height 0.75)))))
 
 ;; The simplest fallback provider (unicodes/emoji)
 (defun pro-tabs--icon-provider-fallback (_buffer-or-mode backend)
@@ -550,23 +567,35 @@ Silences messages during provider calls and protects against provider errors."
   (when pro-tabs-enable-icons
     (let ((inhibit-message t)) ; some providers or deps may call `message'
       (if (bufferp buffer-or-mode)
-          (or (gethash buffer-or-mode pro-tabs--icon-cache-by-buffer)
-              (let ((val (cl-some (lambda (fn)
-                                    (condition-case nil
-                                        (funcall fn buffer-or-mode backend)
-                                      (error nil)))
-                                  pro-tabs-icon-functions)))
-                (puthash buffer-or-mode val pro-tabs--icon-cache-by-buffer)
-                val))
-        (let* ((key (cons buffer-or-mode backend)))
-          (or (gethash key pro-tabs--icon-cache-by-mode)
-              (let ((val (cl-some (lambda (fn)
-                                    (condition-case nil
-                                        (funcall fn buffer-or-mode backend)
-                                      (error nil)))
-                                  pro-tabs-icon-functions)))
-                (puthash key val pro-tabs--icon-cache-by-mode)
-                val)))))))
+          (let* ((active? (eq buffer-or-mode (window-buffer)))
+                 (key (vector buffer-or-mode backend active?)))
+            (or (let ((cached (gethash key pro-tabs--icon-cache-by-buffer)))
+                  (when cached
+                    (pro-tabs--log 'trace "icon-cache: buffer hit %s/%S active=%s" (buffer-name buffer-or-mode) backend active?))
+                  cached)
+                (let ((val (cl-some (lambda (fn)
+                                      (condition-case nil
+                                          (funcall fn buffer-or-mode backend)
+                                        (error nil)))
+                                    pro-tabs-icon-functions)))
+                  (when (null val)
+                    (pro-tabs--log 'trace "icon-provider: no icon for buffer=%s backend=%S active=%s" (buffer-name buffer-or-mode) backend active?))
+                  (puthash key val pro-tabs--icon-cache-by-buffer)
+                  val))
+            (let* ((key (cons buffer-or-mode backend)))
+              (or (let ((cached (gethash key pro-tabs--icon-cache-by-mode)))
+                    (when cached
+                      (pro-tabs--log 'trace "icon-cache: mode hit %S/%S" buffer-or-mode backend))
+                    cached)
+                  (let ((val (cl-some (lambda (fn)
+                                        (condition-case nil
+                                            (funcall fn buffer-or-mode backend)
+                                          (error nil)))
+                                      pro-tabs-icon-functions)))
+                    (when (null val)
+                      (pro-tabs--log 'trace "icon-provider: no icon for mode=%S backend=%S" buffer-or-mode backend))
+                    (puthash key val pro-tabs--icon-cache-by-mode)
+                    val))))))))
 
 (defun pro-tabs--shorten (str len)
   (if (> (length str) len)
@@ -593,6 +622,8 @@ Silences messages during provider calls and protects against provider errors."
                         " "))
             (name     (pro-tabs--shorten bufname pro-tabs-max-name-length))
             (txt      (concat wave-r (or icon "") " " name wave-l)))
+       (pro-tabs--log 'trace "format tab-bar: tab=%s buffer=%s icon=%S"
+                      bufname (and (get-buffer bufname) (buffer-name (get-buffer bufname))) icon)
        (add-face-text-property 0 (length txt) face t txt) txt))
 
     (_                                  ; tab-line
@@ -617,6 +648,10 @@ Silences messages during provider calls and protects against provider errors."
                          " "))
             (name      (pro-tabs--shorten (buffer-name buffer) pro-tabs-max-name-length))
             (txt       (concat wave-r (or icon "") " " name wave-l)))
+       (pro-tabs--log 'trace "format tab-line: buffer=%s mode=%S icon=%S count=%s many=%s"
+                      (buffer-name buffer)
+                      (buffer-local-value 'major-mode buffer)
+                      icon count many)
        (add-face-text-property 0 (length txt) face t txt) txt))))
 
 (defun pro-tabs--format (backend item &optional _index)
@@ -637,10 +672,14 @@ BACKEND ∈ {'tab-bar,'tab-line}. ITEM is alist(tab) or buffer."
                           pro-tabs-enable-icons pro-tabs-enable-waves
                           pro-tabs-max-name-length pro-tabs-tab-line-height))))
          (val (gethash key pro-tabs--format-cache)))
-    (or val
-        (let ((txt (pro-tabs--format-internal backend item _index)))
-          (puthash key txt pro-tabs--format-cache)
-          txt))))
+    (if val
+        (progn
+          (pro-tabs--log 'trace "format-cache: hit backend=%S key=%S" backend key)
+          val)
+      (pro-tabs--log 'trace "format-cache: miss backend=%S key=%S" backend key)
+      (let ((txt (pro-tabs--format-internal backend item _index)))
+        (puthash key txt pro-tabs--format-cache)
+        txt))))
 
 (defun pro-tabs-format-tab-bar (tab idx)
   "Wrapper for =tab-bar-tab-name-format-function'."
