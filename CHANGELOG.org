@@ -1,0 +1,6 @@
+#+title: Changelog
+
+* Unreleased
+
+** Fixed
+- Keep `tab-bar` and `tab-line` at a fixed size even when the current buffer uses `text-scale-increase` or other `face-remapping-alist` changes.

@@ -48,6 +48,7 @@ Runtime behavior:
 - `pro-tabs-mode` only suppresses empty tab-line rows in buffers where tab-line is already enabled.
 - When `pro-tabs-mode` hides tab-line in a buffer, it restores the buffer's previous `tab-line-format` on disable.
 - Theme tracking refreshes faces and reapplies built-in face inheritance.
+- Buffer-local text scaling does not change pro-tabs sizing; faces are locked to the frame default height.
 - `pro-tabs--enable-tab-bar-on-frame` keeps new frames showing tab-bar.
 - `pro-tabs-refresh` recomputes face state manually.
 - `pro-tabs-flush-caches` clears rendering caches and refreshes UI.

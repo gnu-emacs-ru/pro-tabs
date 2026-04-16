@@ -250,6 +250,20 @@ Requires interactive Emacs (not batch)."
             (pro-tabs-mode 0)))
       (kill-buffer buffer))))
 
+(ert-deftest pro-tabs-text-scale-does-not-resize-tab-faces ()
+  "Text scaling in the current buffer should not resize pro-tabs faces."
+  (let ((buffer (get-buffer-create "*pro-tabs-text-scale*")))
+    (unwind-protect
+        (with-current-buffer buffer
+          (pro-tabs-mode 1)
+          (let ((base-height (pro-tabs--default-height)))
+            (let ((face-remapping-alist '((default (:height 2.0)))))
+              (should (= (pro-tabs--default-height) base-height))
+              (should (= (face-attribute 'tab-bar :height nil t) base-height))
+              (should (= (face-attribute 'tab-line :height nil t) base-height)))))
+      (pro-tabs-mode 0)
+      (kill-buffer buffer))))
+
 (ert-deftest pro-tabs-enable-refreshes-theme-faces ()
   "Enabling pro-tabs should recompute theme-dependent faces."
   (let ((buffer (get-buffer-create "*pro-tabs-enable-theme-refresh*"))

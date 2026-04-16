@@ -15,6 +15,11 @@
   Spec: `tab-bar` and `tab-line` use the same active/inactive face model. The current tab uses the theme's main background with a bright foreground, inactive tabs use a background that is darker but still readable, and the `tab-bar` track background is darker than the inactive tabs for contrast. If the theme leaves `default` too close to unspecified, pro-tabs falls back to a usable contrasting background. Enabling `pro-tabs-mode` recomputes these faces from the current theme so startup and theme switches stay in sync.
   Proof: ERT plus manual theme refresh coverage.
 
+- Name: Text Scale Isolation
+  Stability: [FLUID]
+  Spec: `text-scale-increase` and `face-remapping-alist` in the current buffer do not resize `tab-bar` or `tab-line`; pro-tabs keeps their height aligned to the frame default size.
+  Proof: ERT coverage.
+
 - Name: Tab-Line Rendering
   Stability: [FLUID]
   Spec: `pro-tabs-format-tab-line` and `pro-tabs-tabs-function-fast` cooperate to render buffers in the current window, while `pro-tabs-mode` leaves `tab-line-mode` under the user's control and only suppresses empty rows in buffers where tab-line is already enabled.

@@ -235,16 +235,16 @@ Uses cache for performance."
 ;; Global faces (single source of truth)
 ;; -------------------------------------------------------------------
 (defface pro-tabs-active-face
-  '((t (:inherit pro-tabs-face :weight bold)))
+  '((t (:inherit pro-tabs-face :weight bold :height unspecified)))
   "Face for active pro tab."
   :group 'pro-tabs)
 
 (defface pro-tabs-inactive-face
-  '((t (:inherit pro-tabs-face)))
+  '((t (:inherit pro-tabs-face :height unspecified)))
   "Face for inactive tab (both tab-bar and tab-line)." :group 'pro-tabs)
 
 (defface pro-tabs-face
-  '((t (:inherit default)))
+  '((t (:inherit default :height unspecified)))
   "Face for tab-line/background (the empty track behind tabs)."  :group 'pro-tabs)
 
 (defun pro-tabs--color-brightness (color)
@@ -256,6 +256,11 @@ Uses cache for performance."
              (* 0.7152 (nth 1 rgb))
              (* 0.0722 (nth 2 rgb)))))
     (error nil)))
+
+(defun pro-tabs--default-height ()
+  "Return the unscaled default face height for the current frame."
+  (let ((height (face-attribute 'default :height nil 'default)))
+    (if (and (numberp height) (> height 0)) height 1)))
 
 (defun pro-tabs--best-foreground (background)
   "Pick a bright theme foreground that contrasts with BACKGROUND."
@@ -340,22 +345,23 @@ Also rebuild cached color blends and wave image specs."
   (let* ((def-bg (pro-tabs--theme-background))
          (inactive-bg (pro-tabs--darken-step def-bg (max 8 (/ pro-tabs-tab-bar-darken-percent 2)) 0.18))
          (track-bg (pro-tabs--darken-step def-bg pro-tabs-tab-bar-darken-percent 0.08))
-         (active-fg (pro-tabs--best-foreground def-bg)))
+         (active-fg (pro-tabs--best-foreground def-bg))
+         (default-height (pro-tabs--default-height)))
     (when (fboundp 'face-spec-set)
       (face-spec-set 'pro-tabs-face
-                     `((t :inherit default :background ,track-bg))
+                     `((t :inherit default :background ,track-bg :height ,default-height))
                      'face-defface-spec)
       (face-spec-set 'pro-tabs-active-face
-                     `((t :inherit pro-tabs-face :background ,def-bg :foreground ,active-fg :weight bold))
+                     `((t :inherit pro-tabs-face :background ,def-bg :foreground ,active-fg :weight bold :height ,default-height))
                      'face-defface-spec)
       (face-spec-set 'pro-tabs-inactive-face
-                     `((t :inherit pro-tabs-face :background ,inactive-bg))
+                     `((t :inherit pro-tabs-face :background ,inactive-bg :height ,default-height))
                      'face-defface-spec)
       (face-spec-set 'tab-bar
-                     `((t :inherit pro-tabs-face :background ,track-bg))
+                     `((t :inherit pro-tabs-face :background ,track-bg :height ,default-height))
                      'face-defface-spec)
       (face-spec-set 'tab-line
-                     `((t :inherit pro-tabs-face :background ,track-bg))
+                     `((t :inherit pro-tabs-face :background ,track-bg :height ,default-height))
                      'face-defface-spec))
     ;; Reapply inheritance to built-in faces and refresh UI
     (pro-tabs--inherit-builtins)
