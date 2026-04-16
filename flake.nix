@@ -30,7 +30,9 @@
         let
           pkgs = import nixpkgs { inherit system; };
         in {
-          tests = pkgs.runCommand "pro-tabs-tests" { nativeBuildInputs = [ pkgs.emacs-nox ]; } ''
+          tests = pkgs.runCommand "pro-tabs-tests" {
+            nativeBuildInputs = [ pkgs.emacs-nox ];
+          } ''
             export HOME="$TMPDIR"
             emacs --batch -Q -L ${self} \
               -l pro-tabs.el \

@@ -10,6 +10,8 @@ Invariants:
 - `pro-tabs-mode` can be toggled repeatedly without leaving Emacs in a broken key/input state.
 - Tab-line/tab-bar defaults are restored on disable.
 - Theme changes refresh faces, cached wave specs, and displayed tab state.
+- Theme changes refresh faces so the active tab uses the theme's main background with a bright foreground, while inactive tabs use a darker background.
+- The current tab-bar contrast treatment is stabilized and should not be adjusted without an explicit intent change.
 - Headless verification covers enable/disable plus a rendering path.
 
 Customization:
@@ -25,17 +27,26 @@ Rendering model:
 - `pro-tabs--format` is the shared formatter with backend-specific wrappers.
 - `pro-tabs--format-internal` owns the tab text assembly.
 - `pro-tabs--icon-functions` is an ordered provider hook with a fallback bullet provider.
+- `tab-bar` and `tab-line` share the same active/inactive face model.
+- The active face uses the theme's main background and a bright foreground chosen from theme faces or a white fallback.
+- The inactive face uses a background that is darker than the theme's main background.
 - Icon provider logic is split into small helpers for face selection, mode dispatch, and fallback handling, and returns a bullet fallback inline.
 - Debug logging can explain cache hits, provider misses, and fallback selection for icons.
 - Format cache hit/miss logging helps diagnose stale tab strings.
 - Buffer icon cache keys include active-state and major-mode so active/inactive tabs can render differently and mode changes invalidate correctly.
 - Buffer and format caches are flushed on buffer-list, window-selection, and window-configuration changes.
 - Wave separators are precomputed and cached by backend, state, direction, and height.
-- Icons and formatted strings use caches that are invalidated by generation bumps.
+- Icons and formatted strings use caches that are invalidated by generation bumps and mode toggles.
 - `pro-tabs-tabs-function-fast` computes tab-line buffers with per-window caching.
 
 Runtime behavior:
 - `pro-tabs-mode` installs and removes tab-bar/tab-line defaults.
+- `pro-tabs-mode` clears rendering caches when it is enabled or disabled.
+- `pro-tabs-mode` restores the original frame `tab-bar-lines` parameter on disable.
+- `pro-tabs-mode` suspends `global-tab-line-mode` while active and restores it on disable when it was previously on.
+- `pro-tabs-mode` does not force `tab-line-mode` on in every buffer; it respects buffers the user already enabled.
+- `pro-tabs-mode` only suppresses empty tab-line rows in buffers where tab-line is already enabled.
+- When `pro-tabs-mode` hides tab-line in a buffer, it restores the buffer's previous `tab-line-format` on disable.
 - Theme tracking refreshes faces and reapplies built-in face inheritance.
 - `pro-tabs--enable-tab-bar-on-frame` keeps new frames showing tab-bar.
 - `pro-tabs-refresh` recomputes face state manually.

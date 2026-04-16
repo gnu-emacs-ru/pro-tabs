@@ -10,9 +10,14 @@
   Spec: `pro-tabs-format-tab-bar` returns formatted tab strings for `tab-bar`.
   Proof: manual/e2e coverage.
 
+- Name: Tab Face Theme
+  Stability: [FLUID]
+  Spec: `tab-bar` and `tab-line` use the same active/inactive face model. The current tab uses the theme's main background with a bright foreground, inactive tabs use a background that is darker but still readable, and the `tab-bar` track background is darker than the inactive tabs for contrast. If the theme leaves `default` too close to unspecified, pro-tabs falls back to a usable contrasting background. Enabling `pro-tabs-mode` recomputes these faces from the current theme so startup and theme switches stay in sync.
+  Proof: ERT plus manual theme refresh coverage.
+
 - Name: Tab-Line Rendering
   Stability: [FLUID]
-  Spec: `pro-tabs-format-tab-line` and `pro-tabs-tabs-function-fast` cooperate to render buffers in the current window.
+  Spec: `pro-tabs-format-tab-line` and `pro-tabs-tabs-function-fast` cooperate to render buffers in the current window, while `pro-tabs-mode` leaves `tab-line-mode` under the user's control and only suppresses empty rows in buffers where tab-line is already enabled.
   Proof: `pro-tabs-e2e-test.el`.
 
 - Name: Headless Test Runner
@@ -57,5 +62,5 @@
 
 - Name: Cache Invalidation
   Stability: [FLUID]
-  Spec: Buffer-list, window-selection, and window-configuration changes flush icon and format caches.
+  Spec: Buffer-list, window-selection, window-configuration changes, and pro-tabs mode toggles flush icon and format caches.
   Proof: manual/e2e coverage.
