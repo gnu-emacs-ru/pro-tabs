@@ -186,7 +186,14 @@ simple fallback is added."
                     (pro-tabs--icon-provider-icon-for-mode mode buffer-or-mode backend))))
     (if (stringp icon)
         (let ((s (copy-sequence icon)))
-          (add-face-text-property 0 (length s) face t s)
+          ;; Prepend our pro-tabs face so it provides background/track
+          ;; while preserving any icon-specific faces (foreground, styling).
+          (let* ((old-face (get-text-property 0 'face s))
+                 (combined (cond
+                            ((null old-face) face)
+                            ((listp old-face) (cons face old-face))
+                            (t (list face old-face)))))
+            (add-text-properties 0 (length s) `(face ,combined) s))
           (add-text-properties 0 (length s) '(ascent center height 0.75) s)
           s)
       (propertize "•"
@@ -737,9 +744,14 @@ Silences messages during provider calls and protects against provider errors."
             (h        pro-tabs-tab-bar-height)
             (icon     (pro-tabs--icon buffer 'tab-bar))
             (icon     (and (stringp icon)
-                           (let ((s (copy-sequence icon)))
-                             (add-face-text-property 0 (length s) face t s)
-                             s)))
+                              (let ((s (copy-sequence icon)))
+                                (let* ((old-face (get-text-property 0 'face s))
+                                       (combined (cond
+                                                  ((null old-face) face)
+                                                  ((listp old-face) (cons face old-face))
+                                                  (t (list face old-face)))))
+                                  (add-text-properties 0 (length s) `(face ,combined) s))
+                                s)))
             (wave-r   (if pro-tabs-enable-waves
                           (pro-tabs--wave-token-right face 'tab-bar (+ 1 h))
                         " "))
@@ -771,9 +783,14 @@ Silences messages during provider calls and protects against provider errors."
             (mode      (buffer-local-value 'major-mode buffer))
             (icon      (and icons? (pro-tabs--icon buffer 'tab-line)))
             (icon      (and (stringp icon)
-                            (let ((s (copy-sequence icon)))
-                              (add-face-text-property 0 (length s) face t s)
-                              s)))
+                             (let ((s (copy-sequence icon)))
+                               (let* ((old-face (get-text-property 0 'face s))
+                                      (combined (cond
+                                                 ((null old-face) face)
+                                                 ((listp old-face) (cons face old-face))
+                                                 (t (list face old-face)))))
+                                 (add-text-properties 0 (length s) `(face ,combined) s))
+                               s)))
             (wave-r    (if waves?
                            (pro-tabs--wave-token-right 'tab-line face (+ 1 h))
                          " "))
