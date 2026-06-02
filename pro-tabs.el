@@ -733,17 +733,18 @@ beyond setting the property."
      ((null cur)
       (add-text-properties start end `(face ,face) object))
      ((symbolp cur)
-      ;; (CUR . FACE) is a valid face list: SYM then SYM, both applied
-      ;; in order, with FACE (ours) winning because it is last.
+      ;; Result is a list of two face entries: CUR then FACE.  When
+      ;; Emacs merges them, FACE (ours) wins because it is later.
       (set-text-properties start end `(face (,cur ,face)) object))
      (t
-      ;; Existing face is a list or cons (eg (PLIST) or (SYM SYM …)).
-      ;; Normalise cons to a list, then append FACE at the end so it
-      ;; wins against any :inherit in the plist.
-      (let* ((as-list (if (and (consp cur) (not (listp (cdr cur))))
-                          (list (car cur) (cdr cur))
-                        cur))
-             (combined (append as-list (list face))))
+      ;; Existing face is already a list (eg (PLIST) or (SYM SYM …)).
+      ;; Append FACE as a new list element so we keep a proper list
+      ;; of face entries (never a single face-attribute spec that
+      ;; would be misinterpreted as (:key1 val1 :key2 val2 …)).
+      (let* ((face-list (if (and (consp cur) (not (listp (cdr cur))))
+                            (list (car cur) (cdr cur))
+                          cur))
+             (combined (append face-list (list face))))
         (set-text-properties start end `(face ,combined) object))))))
 
 (defun pro-tabs--current-tab-p (item)
