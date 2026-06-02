@@ -737,10 +737,10 @@ beyond setting the property."
       ;; in order, with FACE (ours) winning because it is last.
       (set-text-properties start end `(face (,cur ,face)) object))
      (t
-      ;; Existing face is a list (eg (PLIST) or (SYM SYM …)).  Append
-      ;; FACE at the end so it wins against any :inherit in the plist.
-      (let* ((as-list (if (consp (car-safe cur))
-                          ;; treat cons cell as a two-element list
+      ;; Existing face is a list or cons (eg (PLIST) or (SYM SYM …)).
+      ;; Normalise cons to a list, then append FACE at the end so it
+      ;; wins against any :inherit in the plist.
+      (let* ((as-list (if (and (consp cur) (not (listp (cdr cur))))
                           (list (car cur) (cdr cur))
                         cur))
              (combined (append as-list (list face))))
