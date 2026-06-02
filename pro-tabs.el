@@ -156,7 +156,7 @@ simple fallback is added."
                                 :height 0.75
                                 :v-adjust 0.03)))
    ((eq mode 'dired-mode)
-    (ignore-errors (all-the-icons-octicon "folder" :v-adjust 0.0 :height 0.75)))
+     (ignore-errors (all-the-icons-octicon "file-directory" :v-adjust 0.0 :height 0.75)))
    ((eq mode 'org-mode)
     (ignore-errors (all-the-icons-fileicon "org" :v-adjust 0.05 :height 0.75)))
    ((eq mode 'Info-mode)
@@ -723,29 +723,78 @@ Silences messages during provider calls and protects against provider errors."
       (concat (substring str 0 len) "…") str))
 
 (defun pro-tabs--apply-face (start end face object)
-  "Append FACE to the existing `face' text property on OBJECT in [START,END).
-Always places FACE LAST in the resulting face list so it overrides
-attributes of any earlier entries (eg a face-attribute plist returned
-by an icon provider).  When the existing face is nil this is a no-op
-beyond setting the property."
-  (let ((cur (and (stringp object) (get-text-property start 'face object))))
+  "Apply FACE to OBJECT in [START,END) while preserving icon attributes.
+
+The `face' text property accepts a single face name, a list of face
+names, or a single face attribute list (plist).  Mixing face names
+with attribute lists in a list produces a property Emacs treats as a
+plist (because the first element is a keyword), and the trailing
+face names end up being interpreted as additional keywords with no
+value -- that breaks rendering and throws `Invalid face' errors in
+APIs like `face-attribute-merged-with'.
+
+So this function picks one of two safe strategies depending on the
+existing face on OBJECT:
+
+  - If the existing face is a plain face name (symbol), the resulting
+    `face' value is a two-element list: the existing face first, then
+    FACE.  In a list of face names, earlier entries take precedence
+    over later ones (Emacs merges from the end backwards), so the
+    icon's own face attribute is preserved while FACE is still part
+    of the property.  This is what
+    `add-face-text-property ... APPEND=t' would produce and is what
+    test pro-tabs-tab-bar-format-includes-provider-icon relies on.
+
+  - If the existing face is a face attribute list (plist, typically
+    from all-the-icons), the resulting `face' value is a single face
+    attribute list that merges the icon's :family, :height, :inherit
+    with FACE's :background, :foreground and :weight.  This way the
+    icon font/family survives while the active/inactive colors come
+    from our own faces."
+  (let* ((cur (and (stringp object) (get-text-property start 'face object)))
+         (icon-plist (cond
+                      ((and (consp cur) (keywordp (car cur)))
+                       cur)
+                      ((and (consp cur) (consp (car cur))
+                            (keywordp (caar cur)))
+                       (car cur))
+                      (t nil))))
     (cond
+     ;; No existing face → just set ours.
      ((null cur)
-      (add-text-properties start end `(face ,face) object))
+      (set-text-properties start end `(face ,face) object))
+     ;; Existing face is a plain face name.  Build a two-element list
+     ;; (CUR FACE) so that the original face is still observable (eg
+     ;; via memq in tests or by user customization).  In a list of
+     ;; face names, the earlier entry takes precedence, so the icon's
+     ;; own face attribute wins; our FACE still contributes through
+     ;; :inherit chains when the icon's face references one.
      ((symbolp cur)
-      ;; Result is a list of two face entries: CUR then FACE.  When
-      ;; Emacs merges them, FACE (ours) wins because it is later.
       (set-text-properties start end `(face (,cur ,face)) object))
+     ;; Existing face is a face attribute list.  Merge the attributes
+     ;; we care about into a single, valid plist face spec.
+     (icon-plist
+      (let* ((icon-family (plist-get icon-plist :family))
+             (icon-height (plist-get icon-plist :height))
+             (icon-inherit (plist-get icon-plist :inherit))
+             (face-fg (and (symbolp face) (face-attribute face :foreground)))
+             (face-bg (and (symbolp face) (face-attribute face :background)))
+             (face-weight (and (symbolp face) (face-attribute face :weight)))
+             (merged (append
+                      (list :family (or icon-family "default"))
+                      (when icon-height (list :height icon-height))
+                      (when icon-inherit (list :inherit icon-inherit))
+                      (when (and face-fg (not (eq face-fg 'unspecified)))
+                        (list :foreground face-fg))
+                      (when (and face-bg (not (eq face-bg 'unspecified)))
+                        (list :background face-bg))
+                      (when (and face-weight (not (eq face-weight 'unspecified)))
+                        (list :weight face-weight)))))
+        (set-text-properties start end `(face ,merged) object)))
+     ;; Existing face is something else (eg a list of face names).
+     ;; Drop it and use our own face.
      (t
-      ;; Existing face is already a list (eg (PLIST) or (SYM SYM …)).
-      ;; Append FACE as a new list element so we keep a proper list
-      ;; of face entries (never a single face-attribute spec that
-      ;; would be misinterpreted as (:key1 val1 :key2 val2 …)).
-      (let* ((face-list (if (and (consp cur) (not (listp (cdr cur))))
-                            (list (car cur) (cdr cur))
-                          cur))
-             (combined (append face-list (list face))))
-        (set-text-properties start end `(face ,combined) object))))))
+      (set-text-properties start end `(face ,face) object)))))
 
 (defun pro-tabs--current-tab-p (item)
   "Return non-nil when ITEM refers to the current tab."
