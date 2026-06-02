@@ -185,17 +185,15 @@ simple fallback is added."
          (icon (and (featurep 'all-the-icons)
                     (pro-tabs--icon-provider-icon-for-mode mode buffer-or-mode backend))))
     (if (stringp icon)
-        (let ((s (copy-sequence icon)))
-          ;; Prepend our pro-tabs face so it provides background/track
-          ;; while preserving any icon-specific faces (foreground, styling).
-          (let* ((old-face (get-text-property 0 'face s))
-                 (combined (cond
-                            ((null old-face) face)
-                            ((listp old-face) (cons face old-face))
-                            (t (list face old-face)))))
-            (add-text-properties 0 (length s) `(face ,combined) s))
-          (add-text-properties 0 (length s) '(ascent center height 0.75) s)
-          s)
+          (let ((s (copy-sequence icon)))
+            ;; Don't mutate the icon face here. The formatter will prepend
+            ;; the pro-tabs face when assembling the final tab string. If we
+            ;; modify the face at the provider level we end up combining
+            ;; faces twice (provider + formatter), which can lead to
+            ;; incorrect rendering for some icon fonts. We only ensure
+            ;; ascent/height here so icons align consistently.
+            (add-text-properties 0 (length s) '(ascent center height 0.75) s)
+            s)
       (propertize "•"
                   'face face
                   'ascent 'center
@@ -724,6 +722,30 @@ Silences messages during provider calls and protects against provider errors."
   (if (> (length str) len)
       (concat (substring str 0 len) "…") str))
 
+(defun pro-tabs--apply-face (start end face object)
+  "Append FACE to the existing `face' text property on OBJECT in [START,END).
+Always places FACE LAST in the resulting face list so it overrides
+attributes of any earlier entries (eg a face-attribute plist returned
+by an icon provider).  When the existing face is nil this is a no-op
+beyond setting the property."
+  (let ((cur (and (stringp object) (get-text-property start 'face object))))
+    (cond
+     ((null cur)
+      (add-text-properties start end `(face ,face) object))
+     ((symbolp cur)
+      ;; (CUR . FACE) is a valid face list: SYM then SYM, both applied
+      ;; in order, with FACE (ours) winning because it is last.
+      (set-text-properties start end `(face (,cur ,face)) object))
+     (t
+      ;; Existing face is a list (eg (PLIST) or (SYM SYM …)).  Append
+      ;; FACE at the end so it wins against any :inherit in the plist.
+      (let* ((as-list (if (consp (car-safe cur))
+                          ;; treat cons cell as a two-element list
+                          (list (car cur) (cdr cur))
+                        cur))
+             (combined (append as-list (list face))))
+        (set-text-properties start end `(face ,combined) object))))))
+
 (defun pro-tabs--current-tab-p (item)
   "Return non-nil when ITEM refers to the current tab."
   (or (eq (car-safe item) 'current-tab)
@@ -743,14 +765,9 @@ Silences messages during provider calls and protects against provider errors."
             (face     (if current? 'pro-tabs-active-face 'pro-tabs-inactive-face))
             (h        pro-tabs-tab-bar-height)
             (icon     (pro-tabs--icon buffer 'tab-bar))
-            (icon     (and (stringp icon)
+             (icon     (and (stringp icon)
                               (let ((s (copy-sequence icon)))
-                                (let* ((old-face (get-text-property 0 'face s))
-                                       (combined (cond
-                                                  ((null old-face) face)
-                                                  ((listp old-face) (cons face old-face))
-                                                  (t (list face old-face)))))
-                                  (add-text-properties 0 (length s) `(face ,combined) s))
+                                (pro-tabs--apply-face 0 (length s) face s)
                                 s)))
             (wave-r   (if pro-tabs-enable-waves
                           (pro-tabs--wave-token-right face 'tab-bar (+ 1 h))
@@ -782,15 +799,10 @@ Silences messages during provider calls and protects against provider errors."
                                 (< count pro-tabs-tab-line-icons-threshold))))
             (mode      (buffer-local-value 'major-mode buffer))
             (icon      (and icons? (pro-tabs--icon buffer 'tab-line)))
-            (icon      (and (stringp icon)
-                             (let ((s (copy-sequence icon)))
-                               (let* ((old-face (get-text-property 0 'face s))
-                                      (combined (cond
-                                                 ((null old-face) face)
-                                                 ((listp old-face) (cons face old-face))
-                                                 (t (list face old-face)))))
-                                 (add-text-properties 0 (length s) `(face ,combined) s))
-                               s)))
+             (icon      (and (stringp icon)
+                              (let ((s (copy-sequence icon)))
+                                (pro-tabs--apply-face 0 (length s) face s)
+                                s)))
             (wave-r    (if waves?
                            (pro-tabs--wave-token-right 'tab-line face (+ 1 h))
                          " "))
