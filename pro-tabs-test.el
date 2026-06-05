@@ -278,6 +278,67 @@ Requires interactive Emacs (not batch)."
             (should (> calls 0))))
       (kill-buffer buffer))))
 
+(ert-deftest pro-tabs-removes-tab-line-tab-face-special-while-active ()
+  "`pro-tabs-mode' must drop `tab-line-tab-face-special' from
+`tab-line-tab-face-functions' so the bold weight it injects does not
+wash out the current/inactive distinction, and must restore the
+original list on disable."
+  (when (boundp 'tab-line-tab-face-functions)
+    (let* ((original '(tab-line-tab-face-special tab-line-tab-face-modified))
+           ;; A user-added modifier that returns the face unchanged.
+           (extra (lambda (&rest _) 'tab-line-tab-inactive))
+           (buf (get-buffer-create "*pro-tabs-tab-line-face-functions*")))
+      (unwind-protect
+          (progn
+            (setq tab-line-tab-face-functions (append original (list extra)))
+            (with-current-buffer buf
+              (pro-tabs-mode 1)
+              (should (not (memq 'tab-line-tab-face-special
+                                 tab-line-tab-face-functions)))
+              (should (memq 'tab-line-tab-face-modified
+                            tab-line-tab-face-functions))
+              (should (memq extra tab-line-tab-face-functions))
+              (pro-tabs-mode 0)
+              (should (equal tab-line-tab-face-functions
+                             (append original (list extra))))))
+        (kill-buffer buf)))))
+
+(ert-deftest pro-tabs-format-tab-line-current-inactive-bolds-current ()
+  "`pro-tabs-format-tab-line' must return a string with a face that
+resolves to a bold `:weight' for the current tab, and to a normal
+weight for the other tabs.  This is the formatter that pro-tabs
+plugs into `tab-line-tab-name-function', so the assertion covers
+the same contrast the built-in `tab-line-tab-face-special' modifier
+would otherwise break."
+  (when (fboundp 'pro-tabs-format-tab-line)
+    (let* ((b1 (generate-new-buffer "alpha"))
+           (b2 (generate-new-buffer "beta"))
+           (b3 (generate-new-buffer "gamma"))
+           (win (selected-window))
+           (pro-tabs-enable-waves nil)
+           (pro-tabs-enable-icons nil)
+           (pro-tabs-tab-line-icons-threshold 0)
+           (pro-tabs-tab-line-wave-threshold 0))
+      (unwind-protect
+          (progn
+            (pro-tabs-mode 1)
+            (set-window-buffer win b2)
+            (clrhash pro-tabs--format-cache)
+            (let* ((str (pro-tabs-format-tab-line b2))
+                   (face (and (stringp str) (get-text-property 1 'face str)))
+                   (weight (and face
+                                (ignore-errors
+                                  (face-attribute face :weight nil t))))
+                   (str1 (pro-tabs-format-tab-line b1))
+                   (face1 (and (stringp str1) (get-text-property 1 'face str1)))
+                   (weight1 (and face1
+                                 (ignore-errors
+                                   (face-attribute face1 :weight nil t)))))
+              (should (eq weight 'bold))
+              (should (eq weight1 'normal)))
+            (pro-tabs-mode 0)
+            (kill-buffer b1) (kill-buffer b2) (kill-buffer b3))))))
+
 ;; Можно добавить другие тесты следующим образом:
 ;; (ert-deftest pro-tabs-format-tab-bar-basic () ...)
 

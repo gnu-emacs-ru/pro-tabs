@@ -69,3 +69,8 @@
   Stability: [FLUID]
   Spec: Buffer-list, window-selection, window-configuration changes, and pro-tabs mode toggles flush icon and format caches.
   Proof: manual/e2e coverage.
+
+- Name: Tab-Line Face Modifiers
+  Stability: [FLUID]
+  Spec: `pro-tabs-mode` removes `tab-line-tab-face-special` from `tab-line-tab-face-functions` while it is active, and restores the original list on disable. The other modifiers (notably `tab-line-tab-face-modified`) are preserved. The motivation: `tab-line-tab-face-special` prepends `:weight bold` to every non-file-visiting tab, which suppresses the weight-based distinction between current and inactive tabs in the pro-tabs face chain. Removing it lets `pro-tabs-active-face` (bold) and `pro-tabs-inactive-face` (normal weight) carry the current-tab highlight on their own.
+  Proof: `pro-tabs-test.el`.

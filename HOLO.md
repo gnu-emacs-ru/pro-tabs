@@ -12,6 +12,7 @@ Invariants:
 - Theme changes refresh faces, cached wave specs, and displayed tab state.
 - Theme changes refresh faces so the active tab uses the theme's main background with a bright foreground, while inactive tabs use a darker background.
 - The current tab-bar contrast treatment is stabilized and should not be adjusted without an explicit intent change.
+- The built-in `tab-line-tab-face-special` modifier is suppressed while `pro-tabs-mode` is active so it does not force `:weight bold` on every non-file-visiting tab and wash out the active/inactive contrast. The original `tab-line-tab-face-functions` list is restored on disable.
 - Headless verification covers enable/disable plus a rendering path.
 
 Customization:
@@ -44,6 +45,7 @@ Runtime behavior:
 - `pro-tabs-mode` clears rendering caches when it is enabled or disabled.
 - `pro-tabs-mode` restores the original frame `tab-bar-lines` parameter on disable.
 - `pro-tabs-mode` suspends `global-tab-line-mode` while active and restores it on disable when it was previously on.
+- `pro-tabs-mode` drops `tab-line-tab-face-special` from `tab-line-tab-face-functions` on enable and restores the original list on disable.
 - `pro-tabs-mode` does not force `tab-line-mode` on in every buffer; it respects buffers the user already enabled.
 - `pro-tabs-mode` only suppresses empty tab-line rows in buffers where tab-line is already enabled.
 - When `pro-tabs-mode` hides tab-line in a buffer, it restores the buffer's previous `tab-line-format` on disable.

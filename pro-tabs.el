@@ -1029,6 +1029,7 @@ Accept any calling convention; extract WINDOW from ARGS when present."
                                              tab-line-new-button-show tab-line-close-button-show
                                              tab-line-separator   tab-line-switch-cycling
                                              tab-line-tabs-function tab-line-tab-name-function
+                                             tab-line-tab-face-functions
                                              tab-line-cache tab-line-cache-key-function))
           (when (boundp v) (pro-tabs--save v)))
 
@@ -1064,6 +1065,16 @@ Accept any calling convention; extract WINDOW from ARGS when present."
         (when (boundp 'tab-line-tab-name-function)
           (setq-default tab-line-tab-name-function #'pro-tabs-format-tab-line)
           (setq tab-line-tab-name-function #'pro-tabs-format-tab-line))
+        ;; The built-in `tab-line-tab-face-special' prepends `:weight bold'
+        ;; to every non-file-visiting tab, which suppresses the
+        ;; current/inactive weight contrast that pro-tabs face chain is
+        ;; meant to provide.  Drop it (and only it) from the modifier list
+        ;; while pro-tabs is active; `pro-tabs--restore' will put it back
+        ;; on disable.  Any user-added modifiers are preserved.
+        (when (boundp 'tab-line-tab-face-functions)
+          (setq tab-line-tab-face-functions
+                (delq 'tab-line-tab-face-special
+                      (cl-remove-if-not #'functionp tab-line-tab-face-functions))))
         ;; Disable built-in tab-line cache; key function set to ignore to avoid funcall on nil.
         (when (boundp 'tab-line-cache) (setq tab-line-cache nil))
         (when (boundp 'tab-line-cache-key-function) (setq tab-line-cache-key-function #'ignore))
