@@ -38,6 +38,17 @@
 ;; all-the-icons is now optional
 (ignore-errors (require 'all-the-icons nil t))
 
+;; all-the-icons functions are referenced through `ignore-errors' wrappers at
+;; the call sites, so the runtime is safe. Declare them here so the byte
+;; compiler stops warning about "function ... is not known to be defined"
+;; when all-the-icons is on the load path.
+(declare-function all-the-icons-faicon "all-the-icons")
+(declare-function all-the-icons-octicon "all-the-icons")
+(declare-function all-the-icons-material "all-the-icons")
+(declare-function all-the-icons-fileicon "all-the-icons")
+(declare-function all-the-icons-alltheicon "all-the-icons")
+(declare-function all-the-icons-icon-for-mode "all-the-icons")
+
 ;; -------------------------------------------------------------------
 ;; Customisation
 ;; -------------------------------------------------------------------
